@@ -152,7 +152,28 @@ def run_get_response_log_probs(
                 we have not masked out the token indices corresponding to the prompt
                 or padding; that is done in the train loop.
     """
-    raise NotImplementedError
+    was_training = model.training
+    model.eval()
+    param_dtype = next(model.parameters()).dtype
+    if param_dtype != torch.float32:
+        model = model.to(torch.float32)
+    with torch.inference_mode():
+        logits = model(input_ids=input_ids).logits
+        log_probs_all = torch.log_softmax(logits, dim=-1)
+        log_probs = torch.gather(
+            log_probs_all, dim=-1, index=labels.long().unsqueeze(-1)
+        ).squeeze(-1)
+
+        output = {"log_probs": log_probs}
+        if return_token_entropy:
+            output["token_entropy"] = run_compute_entropy(logits)
+
+    if was_training:
+        model.train()
+    if param_dtype != torch.float32:
+        model = model.to(param_dtype)
+
+    return output
 
 
 def run_compute_naive_policy_gradient_loss(

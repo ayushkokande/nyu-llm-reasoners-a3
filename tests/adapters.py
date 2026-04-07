@@ -262,7 +262,12 @@ def run_sft_microbatch_train_step(
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     """Compute the policy gradient loss and backprop its gradients for a microbatch.
     """
-    raise NotImplementedError
+    norm = float(normalize_constant if normalize_constant is not None else 1.0)
+    denom = 2.0 * float(gradient_accumulation_steps) * norm
+    masked = policy_log_probs * response_mask.to(policy_log_probs.dtype)
+    loss = -masked.sum() / denom
+    loss.backward()
+    return loss, {}
 
     
 def run_grpo_microbatch_train_step(
@@ -326,7 +331,9 @@ def run_masked_normalize(
         torch.Tensor, the normalized sum, where masked elements
             (mask=0) don't contribute to the sum.
     """
-    raise NotImplementedError
+    masked = tensor * mask.to(tensor.dtype)
+    summed = masked.sum() if dim is None else masked.sum(dim=dim)
+    return summed / normalize_constant
 
 
 """

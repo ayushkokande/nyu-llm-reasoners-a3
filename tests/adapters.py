@@ -31,7 +31,43 @@ def run_tokenize_prompt_and_output(
             "response_mask": torch.Tensor of shape (batch_size, max(prompt_and_output_lens) - 1):
                 a mask on the response tokens in `labels`.
     """
-    raise NotImplementedError
+    batch_size = len(prompt_strs)
+
+    prompt_ids_list = [
+        tokenizer.encode(p, add_special_tokens=False) for p in prompt_strs
+    ]
+    output_ids_list = [
+        tokenizer.encode(o, add_special_tokens=False) for o in output_strs
+    ]
+
+    full_ids_list = [p + o for p, o in zip(prompt_ids_list, output_ids_list)]
+    prompt_lens = [len(p) for p in prompt_ids_list]
+    full_lens = [len(f) for f in full_ids_list]
+    max_len = max(full_lens)
+    seq_len = max_len - 1
+
+    pad_id = tokenizer.eos_token_id
+
+    padded_full = torch.full((batch_size, max_len), pad_id, dtype=torch.long)
+    for i in range(batch_size):
+        ids = full_ids_list[i]
+        padded_full[i, : len(ids)] = torch.tensor(ids, dtype=torch.long)
+
+    input_ids = padded_full[:, :-1].clone()
+    labels = padded_full[:, 1:].clone()
+
+    response_mask = torch.zeros((batch_size, seq_len), dtype=torch.bool)
+    for i in range(batch_size):
+        start = prompt_lens[i] - 1
+        end = full_lens[i] - 1
+        if start < end:
+            response_mask[i, start:end] = True
+
+    return {
+        "input_ids": input_ids,
+        "labels": labels,
+        "response_mask": response_mask,
+    }
 
 
 def run_compute_group_normalized_rewards(

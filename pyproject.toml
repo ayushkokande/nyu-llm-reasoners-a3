@@ -20,6 +20,12 @@ dependencies = [
     "datasets>=3.0.0",
 ]
 
+[project.optional-dependencies]
+sft = [
+    "wandb>=0.16.0",
+    "matplotlib>=3.7.0",
+]
+
 [tool.setuptools.packages.find]
 include = ["student"]
 

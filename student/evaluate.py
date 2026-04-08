@@ -6,13 +6,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
-from vllm import LLM, SamplingParams
 
 from .drgrpo_grader import question_only_reward_fn
+
+if TYPE_CHECKING:
+    from vllm import LLM, SamplingParams
 
 
 def load_prompt(name: str = "intellect") -> str:
@@ -25,6 +27,8 @@ def evaluate(
     prompts: list[str],
     ground_truths: list[str],
 ) -> float:
+    from vllm import SamplingParams
+
     params = SamplingParams(temperature=0.0, max_tokens=2048)
     outputs = llm.generate(prompts, params)
 
@@ -43,6 +47,8 @@ def evaluate_math_baseline(
     max_examples: int | None,
     log_fp: TextIO,
 ) -> tuple[float, dict[str, int]]:
+    from vllm import SamplingParams
+
     math_ds = load_dataset("hiyouga/math12k", split="test")
     n_all = len(math_ds)
     n = n_all if max_examples is None else min(max_examples, n_all)
@@ -114,6 +120,8 @@ def main() -> None:
         sys.exit(1)
 
     prompt_template = load_prompt("intellect")
+
+    from vllm import LLM
 
     llm = LLM(
         model=args.model,

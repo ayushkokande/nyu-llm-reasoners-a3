@@ -77,7 +77,7 @@ def run_compute_group_normalized_rewards(
     group_size: int,
     advantage_eps: float,
     normalize_by_std: bool,
-) -> tuple[torch.Tensor, dict[str, float]]:
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
     """
     Compute rewards for each group of rollout responses, 
     normalized by the group size.
@@ -113,7 +113,40 @@ def run_compute_group_normalized_rewards(
                 You may choose what you wish to log here
                 (some statistics of the rewards, etc.).
     """
-    raise NotImplementedError
+    if len(rollout_responses) != len(repeated_ground_truths):
+        raise ValueError("rollout_responses and repeated_ground_truths must have same length")
+    if group_size <= 0:
+        raise ValueError("group_size must be positive")
+    if len(rollout_responses) % group_size != 0:
+        raise ValueError("rollout batch size must be divisible by group_size")
+
+    raw_rewards_list: list[float] = []
+    for response, gt in zip(rollout_responses, repeated_ground_truths):
+        reward_dict = reward_fn(response, gt)
+        raw_rewards_list.append(float(reward_dict["reward"]))
+
+    raw_rewards = torch.tensor(raw_rewards_list, dtype=torch.float32)
+    grouped = raw_rewards.view(-1, group_size)
+
+    group_means = grouped.mean(dim=1, keepdim=True)
+    centered = grouped - group_means
+
+    if normalize_by_std:
+        group_stds = grouped.std(dim=1, unbiased=True, keepdim=True)
+        normalized = centered / (group_stds + float(advantage_eps))
+    else:
+        normalized = centered
+
+    normalized_rewards = normalized.reshape(-1)
+
+    metadata = {
+        "reward_mean": float(raw_rewards.mean().item()),
+        "reward_std": float(raw_rewards.std(unbiased=False).item()),
+        "reward_min": float(raw_rewards.min().item()),
+        "reward_max": float(raw_rewards.max().item()),
+    }
+
+    return normalized_rewards, raw_rewards, metadata
 
 
 def run_compute_entropy(logits: torch.Tensor) -> torch.Tensor:
@@ -192,7 +225,14 @@ def run_compute_naive_policy_gradient_loss(
         torch.Tensor of shape (batch_size, sequence_length): 
             the policy gradient per-token loss.
     """
-    raise NotImplementedError
+    if raw_rewards_or_advantages.ndim != 2 or raw_rewards_or_advantages.shape[1] != 1:
+        raise ValueError("raw_rewards_or_advantages must have shape (batch_size, 1)")
+    if policy_log_probs.ndim != 2:
+        raise ValueError("policy_log_probs must have shape (batch_size, sequence_length)")
+    if raw_rewards_or_advantages.shape[0] != policy_log_probs.shape[0]:
+        raise ValueError("batch dimension mismatch between rewards and log_probs")
+
+    return -raw_rewards_or_advantages.to(policy_log_probs.dtype) * policy_log_probs
 
 
 def run_compute_grpo_clip_loss(
@@ -219,7 +259,32 @@ def run_compute_grpo_clip_loss(
             dict[str, torch.Tensor]: metadata for the GRPO-Clip loss 
                 (used to compute clip fraction).
     """
-    raise NotImplementedError
+    if advantages.ndim != 2 or advantages.shape[1] != 1:
+        raise ValueError("advantages must have shape (batch_size, 1)")
+    if policy_log_probs.ndim != 2 or old_log_probs.ndim != 2:
+        raise ValueError("policy_log_probs and old_log_probs must have shape (batch_size, sequence_length)")
+    if policy_log_probs.shape != old_log_probs.shape:
+        raise ValueError("policy_log_probs and old_log_probs must have identical shape")
+    if advantages.shape[0] != policy_log_probs.shape[0]:
+        raise ValueError("batch dimension mismatch between advantages and log_probs")
+
+    adv = advantages.to(policy_log_probs.dtype)
+    ratio = torch.exp(policy_log_probs - old_log_probs)
+    clipped_ratio = torch.clamp(ratio, 1.0 - cliprange, 1.0 + cliprange)
+
+    lhs = ratio * adv
+    rhs = clipped_ratio * adv
+    objective = torch.minimum(lhs, rhs)
+    loss = -objective
+
+    metadata = {
+        "ratio": ratio,
+        "clipped_ratio": clipped_ratio,
+        "is_clipped_low": ratio < (1.0 - cliprange),
+        "is_clipped_high": ratio > (1.0 + cliprange),
+        "is_rhs_selected": rhs < lhs,
+    }
+    return loss, metadata
 
 
 def run_compute_policy_gradient_loss(
@@ -233,7 +298,37 @@ def run_compute_policy_gradient_loss(
     """
     Wrapper that delegates to the appropriate policy gradient loss function above.
     """
-    raise NotImplementedError
+    if loss_type == "no_baseline":
+        if raw_rewards is None:
+            raise ValueError("raw_rewards is required for loss_type='no_baseline'")
+        return run_compute_naive_policy_gradient_loss(
+            raw_rewards_or_advantages=raw_rewards,
+            policy_log_probs=policy_log_probs,
+        ), {}
+
+    if loss_type == "reinforce_with_baseline":
+        if advantages is None:
+            raise ValueError("advantages is required for loss_type='reinforce_with_baseline'")
+        return run_compute_naive_policy_gradient_loss(
+            raw_rewards_or_advantages=advantages,
+            policy_log_probs=policy_log_probs,
+        ), {}
+
+    if loss_type == "grpo_clip":
+        if advantages is None:
+            raise ValueError("advantages is required for loss_type='grpo_clip'")
+        if old_log_probs is None:
+            raise ValueError("old_log_probs is required for loss_type='grpo_clip'")
+        if cliprange is None:
+            raise ValueError("cliprange is required for loss_type='grpo_clip'")
+        return run_compute_grpo_clip_loss(
+            advantages=advantages,
+            policy_log_probs=policy_log_probs,
+            old_log_probs=old_log_probs,
+            cliprange=cliprange,
+        )
+
+    raise ValueError(f"Unknown loss_type: {loss_type}")
 
 
 def run_masked_mean(tensor: torch.Tensor, mask: torch.Tensor, dim: int | None = None) -> torch.Tensor:
@@ -252,7 +347,18 @@ def run_masked_mean(tensor: torch.Tensor, mask: torch.Tensor, dim: int | None = 
         torch.Tensor, the mean of the tensor along the specified
             dimension, considering only the elements with mask value 1.
     """
-    raise NotImplementedError
+    if tensor.shape != mask.shape:
+        raise ValueError("tensor and mask must have the same shape")
+
+    mask_f = mask.to(tensor.dtype)
+    masked = tensor * mask_f
+
+    if dim is None:
+        denom = mask_f.sum()
+        return masked.sum() / denom
+
+    denom = mask_f.sum(dim=dim)
+    return masked.sum(dim=dim) / denom
 
 def run_sft_microbatch_train_step(
     policy_log_probs: torch.Tensor,
@@ -306,7 +412,23 @@ def run_grpo_microbatch_train_step(
         tuple[torch.Tensor, dict[str, torch.Tensor]]: 
             the policy gradient loss and its metadata.
     """
-    raise NotImplementedError
+    per_token_loss, metadata = run_compute_policy_gradient_loss(
+        policy_log_probs=policy_log_probs,
+        loss_type=loss_type,
+        raw_rewards=raw_rewards,
+        advantages=advantages,
+        old_log_probs=old_log_probs,
+        cliprange=cliprange,
+    )
+
+    loss = run_masked_mean(
+        tensor=per_token_loss,
+        mask=response_mask,
+        dim=None,
+    ) / float(gradient_accumulation_steps)
+
+    loss.backward()
+    return loss, metadata
 
 
 def run_masked_normalize(

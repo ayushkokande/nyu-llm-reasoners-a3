@@ -29,6 +29,7 @@ import argparse
 import json
 import math
 import random
+import sys
 from itertools import cycle
 from pathlib import Path
 from typing import Any
@@ -129,9 +130,19 @@ def _collate_batch(
     batch: list[dict[str, Any]],
     pad_id: int,
 ) -> dict[str, torch.Tensor]:
-    max_len = max(int(x["input_ids"].shape[0]) for x in batch)
-    input_ids, labels, response_mask, attention_mask = [], [], [], []
+    tensor_batch = []
     for x in batch:
+        tensor_batch.append(
+            {
+                "input_ids": torch.as_tensor(x["input_ids"], dtype=torch.long),
+                "labels": torch.as_tensor(x["labels"], dtype=torch.long),
+                "response_mask": torch.as_tensor(x["response_mask"], dtype=torch.bool),
+            }
+        )
+
+    max_len = max(int(x["input_ids"].shape[0]) for x in tensor_batch)
+    input_ids, labels, response_mask, attention_mask = [], [], [], []
+    for x in tensor_batch:
         seq_len = int(x["input_ids"].shape[0])
         pad_n = max_len - seq_len
         ids = x["input_ids"].tolist()
@@ -168,10 +179,12 @@ def _build_prime_intellect_dataset(
     if max_train_samples is not None and max_train_samples < len(ds):
         ds = ds.shuffle(seed=seed).select(range(max_train_samples))
 
-    return ds.map(
+    ds = ds.map(
         lambda ex: _encode_sft_example(ex["messages"], tokenizer, max_seq_length),
         remove_columns=ds.column_names,
     )
+    ds.set_format(type="torch", columns=["input_ids", "labels", "response_mask"])
+    return ds
 
 
 def _math_prompts_and_answers(
@@ -251,6 +264,7 @@ def _eval_accuracy_generate(
         list(zip(prompts, ground_truths)),
         desc="eval(generate)",
         leave=False,
+        file=sys.stdout,
     ):
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=4096)
         inputs = {k: v.to(device) for k, v in inputs.items()}
@@ -359,14 +373,14 @@ def train_loop(args: argparse.Namespace) -> None:
     running_nll = 0.0
     running_ntok = 0
 
-    pbar = tqdm(total=total_steps, desc="train")
+    pbar = tqdm(total=total_steps, desc="train", file=sys.stdout)
     it = cycle(dl)
 
     while train_step < total_steps:
         batch = next(it)
         batch = {k: v.to(device) for k, v in batch.items()}
 
-        with torch.cuda.amp.autocast(enabled=use_amp, dtype=torch.bfloat16):
+        with torch.amp.autocast("cuda", enabled=use_amp, dtype=torch.bfloat16):
             logits = model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],
@@ -403,8 +417,11 @@ def train_loop(args: argparse.Namespace) -> None:
         pbar.set_postfix(nll=f"{nll_per_token:.4f}")
         if wb:
             wb.log(
-                {"train/loss": nll_per_token, "train/lr": sched.get_last_lr()[0]},
-                step=train_step,
+                {
+                    "train_step": train_step,
+                    "train/loss": nll_per_token,
+                    "train/lr": sched.get_last_lr()[0],
+                },
             )
         running_nll = 0.0
         running_ntok = 0
@@ -438,7 +455,7 @@ def train_loop(args: argparse.Namespace) -> None:
 
             print(json.dumps({"eval_step": eval_step, **metrics}, indent=2))
             if wb:
-                wb.log(metrics, step=eval_step)
+                wb.log({"eval_step": eval_step, **metrics})
 
     pbar.close()
 

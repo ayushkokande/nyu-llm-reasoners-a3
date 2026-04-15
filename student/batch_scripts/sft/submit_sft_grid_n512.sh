@@ -1,14 +1,18 @@
 #!/bin/bash
 #SBATCH --job-name=sft_submit_n512
 #SBATCH --account=csci_ga_3033_131-2026sp
-#SBATCH --partition=c24m170-a100-2
-#SBATCH --gres=gpu:2
-#SBATCH --time=00:10:00
+#SBATCH --partition=g4-standard-48
+#SBATCH --gres=gpu:1
+#SBATCH --time=10:00:00
 #SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n512_%j.out
 #SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n512_%j.err
+#SBATCH --mail-user=ak13124@nyu.edu  
+#SBATCH --mail-type=END    
 
 set -euo pipefail
 
+# Stage 1 of the SFT workflow: tune on n=512 first, then reuse the
+# selected hyperparameters for the all-sizes run.
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 SBATCH_SCRIPT="${SCRIPT_DIR}/sbatch_sft.sh"
 
@@ -35,3 +39,5 @@ for lr in "${LR_LIST[@]}"; do
 done
 
 echo "Submitted ${submitted} jobs."
+echo "After the n=512 sweep finishes, choose the best LR/BS/GA and pass"
+echo "them into submit_sft_all_sizes.sh for the full handout sweep."

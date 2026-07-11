@@ -1,13 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=sft_full_a100
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=c24m170-a100-2
 #SBATCH --gres=gpu:2
 #SBATCH --time=48:00:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_full_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_full_%j.err
-#SBATCH --mail-user=ak13124@nyu.edu
-#SBATCH --mail-type=FAIL,END
+#SBATCH --output=sft_full_%j.out
+#SBATCH --error=sft_full_%j.err
 
 set -euo pipefail
 
@@ -20,10 +17,10 @@ NUM_EPOCHS="${NUM_EPOCHS:-4}"
 EVAL_EVERY="${EVAL_EVERY:-200}"
 VLLM_DEVICE="${VLLM_DEVICE:-}"
 
-SCRATCH="/scratch/ak13124"
-SIF="${SCRATCH}/ubuntu-20.04.3.sif"
-OVERLAY="${SCRATCH}/overlay-25GB-500K.ext3:ro"
-REPO="${SCRATCH}/a3/nyu-llm-reasoners-a3"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
+SIF="${SIF:-${SCRATCH}/ubuntu-20.04.3.sif}"
+OVERLAY="${OVERLAY:-${SCRATCH}/overlay-25GB-500K.ext3:ro}"
+REPO="${REPO:-${SCRATCH}/math-reasoning-rl}"
 
 LR_SAFE=$(printf '%s' "${LR}" | sed 's/[^A-Za-z0-9]/_/g')
 EPOCH_SUFFIX=""
@@ -63,7 +60,7 @@ echo \"vLLM device: ${VLLM_DEVICE:-none (single-GPU generate eval)}\"
 mkdir -p outputs
 uv sync --extra sft
 
-uv run python -m student.sft_train \\
+uv run python -m reasoning_rl.sft_train \\
   --num-epochs ${NUM_EPOCHS} \\
   --learning-rate ${LR} \\
   --per-device-batch-size ${BS} \\
@@ -76,7 +73,7 @@ uv run python -m student.sft_train \\
   --math-eval-n 128 \\
   --eval-max-new-tokens 2048 \\
   --output-dir \"${OUT_DIR}\" \\
-  --wandb-project nyu-llm-reasoners-a3-sft \\
+  --wandb-project math-reasoning-rl-sft \\
   --wandb-run-name \"${RUN_NAME}\"
 
 echo \"=== Done: checkpoint at ${OUT_DIR} ===\"

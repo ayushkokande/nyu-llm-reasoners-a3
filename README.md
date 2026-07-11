@@ -1,36 +1,54 @@
-# NYU Building LLM Reasoners Assignment 3: Alignment
+# Math Reasoning with Reinforcement Learning
 
-This assignment is adapted from Stanford CS336 Assignment 5 ([original repository](https://github.com/stanford-cs336/)). All credit for its
-development goes to the Stanford course staff. This README and all of the following code are adapted from theirs.
+This project trains and evaluates small language models for mathematical
+reasoning with supervised fine-tuning (SFT) and Group-Relative Policy
+Optimization (GRPO). The experiments use `Qwen/Qwen2.5-Math-1.5B` as the base
+model, evaluate mathematical correctness on MATH-12K, warm-start the policy on
+Prime Intellect math reasoning traces, and refine it with reward-based training
+on Countdown tasks.
 
-For a full description of the assignment, see the assignment handout at
-[a3.pdf](https://gregdurrett.github.io/courses/sp2026/a3.pdf)
+The repository includes from-scratch implementations of the SFT data masking
+pipeline, GRPO reward normalization and policy-gradient losses, single- and
+multi-GPU training loops, vLLM-backed evaluation, a math-answer reward/grader,
+Slurm launch scripts, and a small Streamlit dashboard for inspecting the
+measured results.
+
+Scaffolding and tests are adapted from [Stanford CS336](https://github.com/stanford-cs336/); credit to the Stanford course staff for the original materials.
 
 ## Setup
 
 ### Environment
 We manage our environments with `uv` to ensure reproducibility, portability, and ease of use.
 Install `uv` [here](https://github.com/astral-sh/uv) (recommended), or run `pip install uv`/`brew install uv`.
-We recommend reading a bit about managing projects in `uv` [here](https://docs.astral.sh/uv/guides/projects/#managing-dependencies) (you will not regret it!).
 
-You can now run any code in the repo using
+Run project commands through `uv`:
+
 ```sh
 uv run <python_file_path>
 ```
-and the environment will be automatically solved and activated when necessary.
 
 ### pyproject-mac.toml
 
-We've included -mac variants of `pyproject.toml` and `uv.lock`. These do not include vllm, which will limit your options for fast inference for
-real experiments, but allow you to complete much of the preliminary testing of models locally.
+The `pyproject-mac.toml` and `uv-mac.lock` variants omit `vllm`, which is
+CUDA-only. They are useful for local CPU-side development and unit tests; full
+training and fast evaluation are intended for CUDA machines.
 
-### Run unit tests
+### Run Unit Tests
 
-
-```sh
+```bash
 uv run pytest
 ```
 
-Initially, all tests should fail with `NotImplementedError`s.
-To connect your implementation to the tests, complete the
-functions in [./tests/adapters.py](./tests/adapters.py).
+### Train And Evaluate
+
+```bash
+uv run python -m reasoning_rl.sft_train --max-train-samples 128 --no-wandb
+uv run python -m reasoning_rl.grpo_train --n-grpo-steps 200 --no-wandb
+uv run python -m reasoning_rl.evaluate --model Qwen/Qwen2.5-Math-1.5B --max-examples 500
+```
+
+### Dashboard
+
+```bash
+uv run --with streamlit streamlit run dashboard/app.py
+```

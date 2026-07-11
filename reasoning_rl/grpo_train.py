@@ -1,6 +1,6 @@
 """GRPO training loop for Countdown.
 
-This script implements the full GRPO train loop used in the assignment:
+This script implements a complete GRPO train loop:
 1) sample rollouts from the current policy
 2) compute grouped rewards / advantages
 3) run microbatch policy-gradient updates
@@ -22,8 +22,8 @@ from torch.optim import AdamW
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from student.drgrpo_grader import question_only_reward_fn
-from student.sft_vllm_utils import init_vllm, load_policy_into_vllm_instance
+from reasoning_rl.drgrpo_grader import question_only_reward_fn
+from reasoning_rl.sft_vllm_utils import init_vllm, load_policy_into_vllm_instance
 
 
 def _load_prompt_template() -> str:
@@ -533,7 +533,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--eval-max-tokens", type=int, default=1024)
 
     p.add_argument("--output-dir", type=Path, default=Path("outputs/grpo_run"))
-    p.add_argument("--wandb-project", default="nyu-llm-reasoners-a3-grpo")
+    p.add_argument("--wandb-project", default="math-reasoning-rl-grpo")
     p.add_argument("--wandb-run-name", default=None)
     p.add_argument("--no-wandb", action="store_true")
     return p
@@ -546,4 +546,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

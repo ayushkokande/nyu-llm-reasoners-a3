@@ -2,15 +2,15 @@
 
 Usage (from wandb):
 
-  uv run python -m student.plot_sft_curves \
+  uv run python -m reasoning_rl.plot_sft_curves \
     --entity YOUR_WANDB_ENTITY \
-    --project nyu-llm-reasoners-a3-sft \
+    --project math-reasoning-rl-sft \
     --filter-prefix sft_n512 \
     --out-dir plots
 
 Usage (from exported CSVs):
 
-  uv run python -m student.plot_sft_curves \
+  uv run python -m reasoning_rl.plot_sft_curves \
     --csv-dir wandb_exports/ \
     --out-dir plots
 """
@@ -129,7 +129,7 @@ def plot_curves(runs: list[dict[str, Any]], out_dir: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--entity", default=None, help="wandb entity (username or team)")
-    parser.add_argument("--project", default="nyu-llm-reasoners-a3-sft")
+    parser.add_argument("--project", default="math-reasoning-rl-sft")
     parser.add_argument("--filter-prefix", default=None, help="Only plot runs whose name starts with this")
     parser.add_argument("--csv-dir", default=None, help="Load from exported CSVs instead of wandb")
     parser.add_argument("--out-dir", default="plots")

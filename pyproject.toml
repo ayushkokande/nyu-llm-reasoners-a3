@@ -1,7 +1,7 @@
 [project]
-name = "student"
+name = "math-reasoning-rl"
 version = "1.0.0"
-description = "NYU Building LLM Reasoners Assignment 3: Alignment"
+description = "Training and evaluation code for math reasoning with SFT and GRPO"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"  # Python 3.13 not yet supported for some deps
 dependencies = [
@@ -28,7 +28,7 @@ sft = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["student"]
+include = ["reasoning_rl"]
 
 [tool.uv]
 package = true
@@ -36,4 +36,3 @@ package = true
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "WARNING"
-

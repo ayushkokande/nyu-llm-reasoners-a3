@@ -1,13 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=math_baseline
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=c12m85-a100-1
 #SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
-# Log paths must be absolute: ./logs depends on cwd when you run sbatch (e.g. this folder vs repo root).
-# Keep prefix in sync with REPO below.
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/math_baseline_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/math_baseline_%j.err
+#SBATCH --output=math_baseline_%j.out
+#SBATCH --error=math_baseline_%j.err
 
 # MATH zero-shot baseline: vLLM + Qwen2.5-Math-1.5B + JSONL + reward buckets.
 #
@@ -21,10 +18,10 @@
 set -euo pipefail
 
 # --- edit these ---
-SCRATCH="/scratch/ak13124"
-SIF="${SCRATCH}/ubuntu-20.04.3.sif"
-OVERLAY="${SCRATCH}/overlay-25GB-500K.ext3:ro"
-REPO="${SCRATCH}/a3/nyu-llm-reasoners-a3"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
+SIF="${SIF:-${SCRATCH}/ubuntu-20.04.3.sif}"
+OVERLAY="${OVERLAY:-${SCRATCH}/overlay-25GB-500K.ext3:ro}"
+REPO="${REPO:-${SCRATCH}/math-reasoning-rl}"
 # ------------------
 
 mkdir -p "${REPO}/logs"
@@ -46,10 +43,10 @@ echo \"=== math_baseline | job \${SLURM_JOB_ID:-local} ===\"
 echo \"Repo: \$(pwd)\"
 echo \"CUDA: \${CUDA_VISIBLE_DEVICES:-unset}\"
 
-OUT=\"outputs/math_part_a_\${SLURM_JOB_ID:-local}.jsonl\"
+OUT=\"outputs/math_baseline_\${SLURM_JOB_ID:-local}.jsonl\"
 mkdir -p outputs
 
-uv run python -m student.evaluate \\
+uv run python -m reasoning_rl.evaluate \\
   --math-baseline \\
   --log-jsonl \"\${OUT}\" \\
   --max-examples 500 \\

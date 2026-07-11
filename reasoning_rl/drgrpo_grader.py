@@ -982,8 +982,8 @@ def grade_answer_mathd(given_answer: str, ground_truth: str) -> bool:
         return True
     return False
 
-
 def extract_answer(passage: str) -> str:
+    """Extract the model's boxed final answer from a generated response."""
     if "\\boxed" in passage:
         return extract_boxed_answer(passage)
     return None

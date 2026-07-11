@@ -162,3 +162,32 @@ cython_debug/
 .ruff_cache/
 *.zip
 .DS_Store
+
+# Local portfolio/assignment artifacts
+*.pdf
+*resume*.pdf
+*Resume*.pdf
+*writeup*
+*Writeup*
+*answers*
+*Answers*
+assignment_*
+homework_*
+/EVAL.md
+/SFT.md
+/GRPO.md
+
+# Backups and generated experiment output
+*.bak
+*.bak.*
+*.out
+*.err
+*.jsonl
+/data/
+/datasets/
+/outputs/
+/checkpoints/
+/models/
+/results/
+/wandb/
+/logs/

@@ -1,7 +1,7 @@
 """Helpers for evaluating a training checkpoint with vLLM on a second GPU.
 
-Copied from the assignment handout (Section 4.3). Uses ``unittest.mock.patch``
-context managers matching the TRL grpo_trainer reference code.
+Uses ``unittest.mock.patch`` context managers matching the TRL grpo_trainer
+reference code.
 """
 
 from __future__ import annotations

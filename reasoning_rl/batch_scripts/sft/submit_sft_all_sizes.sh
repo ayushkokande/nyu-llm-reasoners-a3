@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=sft_submit_all
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=c24m170-a100-2
 #SBATCH --time=00:10:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_all_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_all_%j.err
+#SBATCH --output=sft_submit_all_%j.out
+#SBATCH --error=sft_submit_all_%j.err
 
 set -euo pipefail
 

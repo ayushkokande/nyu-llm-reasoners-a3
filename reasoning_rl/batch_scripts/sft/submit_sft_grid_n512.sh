@@ -1,13 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=sft_submit_n512
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=g4-standard-48
 #SBATCH --gres=gpu:1
 #SBATCH --time=10:00:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n512_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n512_%j.err
-#SBATCH --mail-user=ak13124@nyu.edu  
-#SBATCH --mail-type=END    
+#SBATCH --output=sft_submit_n512_%j.out
+#SBATCH --error=sft_submit_n512_%j.err
 
 set -euo pipefail
 
@@ -40,4 +37,4 @@ done
 
 echo "Submitted ${submitted} jobs."
 echo "After the n=512 sweep finishes, choose the best LR/BS/GA and pass"
-echo "them into submit_sft_all_sizes.sh for the full handout sweep."
+echo "them into submit_sft_all_sizes.sh for the full size sweep."

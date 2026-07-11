@@ -1,13 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=sft_train
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=g4-standard-48
 #SBATCH --gres=gpu:1
 #SBATCH --time=10:00:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_%j.err
-#SBATCH --mail-user=ak13124@nyu.edu  
-#SBATCH --mail-type=END    
+#SBATCH --output=sft_%j.out
+#SBATCH --error=sft_%j.err
 set -euo pipefail
 
 SAMPLES="${SAMPLES:-512}"
@@ -18,10 +15,10 @@ EVAL_EVERY="${EVAL_EVERY:-50}"
 NUM_EPOCHS="${NUM_EPOCHS:-1}"
 VLLM_DEVICE="${VLLM_DEVICE:-}"
 
-SCRATCH="/scratch/ak13124"
-SIF="${SCRATCH}/ubuntu-20.04.3.sif"
-OVERLAY="${SCRATCH}/overlay-25GB-500K.ext3:ro"
-REPO="${SCRATCH}/a3/nyu-llm-reasoners-a3"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
+SIF="${SIF:-${SCRATCH}/ubuntu-20.04.3.sif}"
+OVERLAY="${OVERLAY:-${SCRATCH}/overlay-25GB-500K.ext3:ro}"
+REPO="${REPO:-${SCRATCH}/math-reasoning-rl}"
 
 LR_SAFE=$(printf '%s' "${LR}" | sed 's/[^A-Za-z0-9]/_/g')
 
@@ -70,7 +67,7 @@ mkdir -p outputs
 
 uv sync --extra sft
 
-uv run python -m student.sft_train \\
+uv run python -m reasoning_rl.sft_train \\
   ${SAMPLE_ARG} \\
   --num-epochs ${NUM_EPOCHS} \\
   --learning-rate ${LR} \\
@@ -84,7 +81,7 @@ uv run python -m student.sft_train \\
   --math-eval-n 128 \\
   --eval-max-new-tokens 2048 \\
   --output-dir \"${OUT_DIR}\" \\
-  --wandb-project nyu-llm-reasoners-a3-sft \\
+  --wandb-project math-reasoning-rl-sft \\
   --wandb-run-name \"${RUN_NAME}\"
 
 echo \"=== Done: checkpoint at ${OUT_DIR} ===\"

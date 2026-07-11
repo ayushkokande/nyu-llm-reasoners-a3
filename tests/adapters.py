@@ -458,10 +458,7 @@ def run_masked_normalize(
     return summed / normalize_constant
 
 
-"""
-The below adapters are used in the optional 
-RLHF / safety part of the Alignment assignment.
-"""
+"""Optional adapters for packed SFT data and instruction-tuning batches."""
 
 
 def get_packed_sft_dataset(

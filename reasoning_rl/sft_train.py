@@ -1,6 +1,6 @@
 """Supervised fine-tuning for Qwen2.5-Math on Prime Intellect INTELLECT-MATH-SFT-Data.
 
-Supports the full assignment SFT experiment:
+Supports reproducible SFT experiments with:
   - Subset sizes {128, 256, 512, 1024, full}
   - wandb metrics with train_step / eval_step as x-axes
   - Gradient clipping 1.0
@@ -9,18 +9,18 @@ Supports the full assignment SFT experiment:
 
 Single-GPU quick test (no vLLM, no wandb):
 
-  uv run python -m student.sft_train --max-train-samples 128 --eval-every 10 \
+  uv run python -m reasoning_rl.sft_train --max-train-samples 128 --eval-every 10 \
     --math-eval-n 32 --max-steps 50 --no-wandb
 
 Two-GPU cluster run (vLLM eval on cuda:1):
 
-  uv run python -m student.sft_train --max-train-samples 512 \
+  uv run python -m reasoning_rl.sft_train --max-train-samples 512 \
     --vllm-device cuda:1 --learning-rate 2e-5 --per-device-batch-size 1 \
     --gradient-accumulation-steps 8 --eval-every 50 --output-dir outputs/sft_n512
 
 After training, evaluate the saved checkpoint with vLLM:
 
-  uv run python -m student.evaluate --model outputs/sft_n512
+  uv run python -m reasoning_rl.evaluate --model outputs/sft_n512
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, get_linear_schedule_with_warmup
 
-from student.drgrpo_grader import question_only_reward_fn
+from reasoning_rl.drgrpo_grader import question_only_reward_fn
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ def _load_prompt_template() -> str:
 
 
 # ---------------------------------------------------------------------------
-# wandb setup (matches handout Section 4.3)
+# wandb setup
 # ---------------------------------------------------------------------------
 
 def _wandb_init(args: argparse.Namespace) -> Any:
@@ -310,10 +310,10 @@ def train_loop(args: argparse.Namespace) -> None:
     model = model.to(device)
     model.train()
 
-    # --- optional vLLM on second GPU (handout 2-GPU mode) ---
+    # --- optional vLLM on second GPU for faster evaluation ---
     vllm_llm = None
     if args.vllm_device:
-        from student.sft_vllm_utils import init_vllm
+        from reasoning_rl.sft_vllm_utils import init_vllm
         print(f"Initializing vLLM on {args.vllm_device} ...")
         vllm_llm = init_vllm(
             model_id=args.model_id,
@@ -432,7 +432,7 @@ def train_loop(args: argparse.Namespace) -> None:
             metrics: dict[str, Any] = {}
 
             if vllm_llm is not None:
-                from student.sft_vllm_utils import load_policy_into_vllm_instance
+                from reasoning_rl.sft_vllm_utils import load_policy_into_vllm_instance
                 load_policy_into_vllm_instance(model, vllm_llm)
                 math_acc = _eval_accuracy_vllm(vllm_llm, math_prompts, math_gts, args.eval_max_new_tokens)
             else:
@@ -511,7 +511,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--vllm-gpu-mem", type=float, default=0.85)
 
     p.add_argument("--output-dir", type=Path, default=Path("outputs/sft_run"))
-    p.add_argument("--wandb-project", default="nyu-llm-reasoners-a3-sft")
+    p.add_argument("--wandb-project", default="math-reasoning-rl-sft")
     p.add_argument("--wandb-run-name", default=None)
     p.add_argument("--no-wandb", action="store_true")
     return p

@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=sft_submit_n128_n256
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=g4-standard-48
 #SBATCH --gres=gpu:1
 #SBATCH --time=10:00:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n128_n256_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_submit_n128_n256_%j.err
-#SBATCH --mail-user=ak13124@nyu.edu
-#SBATCH --mail-type=END
+#SBATCH --output=sft_submit_n128_n256_%j.out
+#SBATCH --error=sft_submit_n128_n256_%j.err
 #
 # Submit two SFT jobs: n=128 and n=256 with lr=5e-5, bs=1, ga=2 (eff_bs=2).
 # NUM_EPOCHS>1 repeats the same training subset so train loss can decay over more steps.
 # (n=128: 64 steps/epoch; n=256: 128 steps/epoch — see logs for total optimizer steps.)
-# Uses student/batch_scripts/sft/sbatch_sft.sh.
+# Uses reasoning_rl/batch_scripts/sft/sbatch_sft.sh.
 # Run: sbatch submit_sft_n128_n256_lr5e5_bs1_ga2.sh   OR   bash submit_sft_n128_n256_lr5e5_bs1_ga2.sh
 set -euo pipefail
 
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 SBATCH_SCRIPT="${SCRIPT_DIR}/sbatch_sft.sh"
-LOG_DIR="/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
+LOG_DIR="${LOG_DIR:-${SCRATCH}/math-reasoning-rl/logs}"
 
 LR=5e-5
 BS=1

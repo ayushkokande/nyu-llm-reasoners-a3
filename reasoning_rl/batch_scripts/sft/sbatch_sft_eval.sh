@@ -1,20 +1,19 @@
 #!/bin/bash
 #SBATCH --job-name=sft_eval
-#SBATCH --account=csci_ga_3033_131-2026sp
 #SBATCH --partition=c24m170-a100-2
 #SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
-#SBATCH --output=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_eval_%j.out
-#SBATCH --error=/scratch/ak13124/a3/nyu-llm-reasoners-a3/logs/sft_eval_%j.err
+#SBATCH --output=sft_eval_%j.out
+#SBATCH --error=sft_eval_%j.err
 
 set -euo pipefail
 
 MODEL_PATH="${MODEL_PATH:-outputs/sft_run}"
 
-SCRATCH="/scratch/ak13124"
-SIF="${SCRATCH}/ubuntu-20.04.3.sif"
-OVERLAY="${SCRATCH}/overlay-25GB-500K.ext3:ro"
-REPO="${SCRATCH}/a3/nyu-llm-reasoners-a3"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
+SIF="${SIF:-${SCRATCH}/ubuntu-20.04.3.sif}"
+OVERLAY="${OVERLAY:-${SCRATCH}/overlay-25GB-500K.ext3:ro}"
+REPO="${REPO:-${SCRATCH}/math-reasoning-rl}"
 
 mkdir -p "${REPO}/logs"
 
@@ -35,7 +34,7 @@ echo \"=== SFT Eval | job \${SLURM_JOB_ID:-local} | model=${MODEL_PATH} ===\"
 echo \"Repo: \$(pwd)\"
 echo \"CUDA: \${CUDA_VISIBLE_DEVICES:-unset}\"
 
-uv run python -m student.evaluate \\
+uv run python -m reasoning_rl.evaluate \\
   --model \"${MODEL_PATH}\" \\
   --max-examples 500 \\
   --gpu-memory-utilization 0.85
